@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-IMAGE=quay.io/redhattraining/ocpdev-builds-triggers-hello:v2
+IMAGE=docker.io/romanbabenko/ex228:ocpdev-builds-triggers-hello-v2
 
 podman build -t ${IMAGE} .
 
