@@ -19,7 +19,7 @@ spec:
         deployment: expense
     spec:
       containers:
-      - image: registry.ocp4.example.com:8443/redhattraining/ocpdev-expense-service-health:4.12
+      - image: quay.io/redhattraining/ocpdev-expense-service-health:4.12
         imagePullPolicy: Always
         name: expense
         ports:
@@ -27,9 +27,9 @@ spec:
           protocol: TCP
         resources:
           requests:
-            memory: "50Mi"
+            memory: "400Mi"
           limits:
-            memory: "50Mi"
+            memory: "400Mi"
 ---
 apiVersion: v1
 kind: Service
@@ -57,7 +57,7 @@ metadata:
     app.kubernetes.io/instance: expense
   name: expense
 spec:
-  host: expense-deployments-health.apps.ocp4.example.com
+  host: expense-deployments-health.apps-crc.testing
   port:
     targetPort: 8080-tcp
   to:

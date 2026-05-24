@@ -1,7 +1,7 @@
 apiVersion: v2
 name: famous-quotes
 description: A Helm chart for Kubernetes
-
+icon: https://www.openshift.com/hubfs/images/icons/Icon-Red_Hat-OpenShift-A-Standard-RGB.svg
 # A chart can be either an 'application' or a 'library' chart.
 #
 # Application charts are a collection of templates that can be packaged into versioned archives

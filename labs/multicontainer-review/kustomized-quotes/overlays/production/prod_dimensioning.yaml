@@ -10,7 +10,7 @@ spec:
         - name: famous-quotes
           resources:
             requests:
-              memory: "200Mi"
+              memory: "512Mi"
               cpu: "300m"
             limits:
-              memory: "200Mi"
+              memory: "512Mi"
