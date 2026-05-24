@@ -1,5 +1,5 @@
 ---
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
   name: nodejs-build
@@ -7,24 +7,30 @@ spec:
   workspaces:
     - name: shared
   params:
-    - name: IMAGE_NAME
-      type: string
-      default: "exchange"
     - name: GIT_REPO
       type: string
-      default: "https://git.ocp4.example.com/developer/DO288-apps"
+      default: "https://github.com/sparlampe/DO288-apps"
     - name: GIT_REVISION
       type: string
-      default: "master"
+      default: "OCP4.12"
     - name: APP_PATH
       type: string
       default: "apps/pipelines-creation/exchange"
+    - name: IMAGE
+      type: string
+      default: "image-registry.openshift-image-registry.svc:5000/$(context.pipelineRun.namespace)/exchange:latest"
 
   tasks:
    - name: fetch-repository
      taskRef:
-       name: git-clone
-       kind: ClusterTask
+       resolver: git
+       params:
+         - name: url
+           value: https://github.com/tektoncd/catalog.git
+         - name: revision
+           value: main
+         - name: pathInRepo
+           value: task/git-clone/0.9/git-clone.yaml
      params:
       - name: url
         value: $(params.GIT_REPO)
@@ -41,11 +47,17 @@ spec:
          workspace: shared
    - name: build-image
      taskRef:
-       name: buildah
-       kind: ClusterTask
+       resolver: git
+       params:
+         - name: url
+           value: https://github.com/tektoncd/catalog.git
+         - name: revision
+           value: main
+         - name: pathInRepo
+           value: task/buildah/0.9/buildah.yaml
      params:
        - name: IMAGE
-         value: registry.ocp4.example.com:8443/developer/$(params.IMAGE_NAME):latest
+         value: $(params.IMAGE)
        - name: DOCKERFILE
          value: Containerfile
        - name: CONTEXT
@@ -53,7 +65,7 @@ spec:
        - name: TLSVERIFY
          value: "false"
        - name: SKIP_PUSH
-         value: "true"
+         value: "false"
      runAfter:
         - fetch-repository
      workspaces:
