@@ -45,6 +45,20 @@ spec:
      workspaces:
        - name: output
          workspace: shared
+   - name: npm-install
+     taskRef:
+       name: npm
+       kind: Task
+     workspaces:
+       - name: source
+         workspace: shared
+     params:
+       - name: CONTEXT
+         value: $(params.APP_PATH)
+       - name: ARGS
+         value: install --no-package-lock
+     runAfter:
+       - fetch-repository
    - name: build-image
      taskRef:
        resolver: git

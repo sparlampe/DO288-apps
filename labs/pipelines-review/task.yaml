@@ -3,13 +3,19 @@ kind: Task
 metadata:
   name: maven-task
 spec:
-  workspaces:
-    # TODO
+  workspaces:  
+    - name: source
+    - name: maven_config
   params:
-    # TODO
+    - name: app_path
+      description: Path to the application source code in the directory
+      type: string
   steps:
     - name: build
-      # TODO
+      image: registry.access.redhat.com/ubi8/openjdk-11:latest
+      workingDir: $(workspaces.source.path)/$(params.app_path)
+      script: |
+        mvn clean package -s $(workspaces.maven_config.path)/settings.xml
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532

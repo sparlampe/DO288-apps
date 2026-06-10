@@ -1,4 +1,4 @@
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
   name: maven-java-pipeline
@@ -9,51 +9,97 @@ spec:
   params:
     - name: GIT_REPO
       type: string
-      default: "https://git.ocp4.example.com/developer/DO288-apps"
+      default: "https://github.com/sparlampe/DO288-apps"
     - name: GIT_REVISION
       type: string
-      default: "master"
+      default: "OCP4.12"
     - name: MVN_APP_PATH
       type: string
-      default: "builds-applications/apps/vertx-site"
+      default: "apps/builds-applications/vertx-site"
     - name: DEPLOY_ARTIFACT_NAME
       type: string
       default: "target/vertx-site-1.0.0-SNAPSHOT-fat.jar"
     - name: DEPLOY_APP_NAME
       type: string
       default: "vertx-site"
-
   tasks:
-    - name: clone-repository
-      taskRef:
-        # TODO
-      params:
-        # TODO
-        - name: deleteExisting
-          value: 'true'
-        - name: sslVerify
-          value: 'false'
-      workspaces:
-        # TODO
-
-    - name: build
-      taskRef:
-        # TODO
-      params:
-        # TODO
-      workspaces:
-        # TODO
-
-    - name: oc-deploy
-      taskRef:
-        # TODO
-      workspaces:
-        # TODO
-      params:
-        # TODO
-
-    - name: skopeo-copy
-      taskRef:
-        # TODO
-      params:
-        # TODO
+   - name: clone-repository
+     taskRef:
+       resolver: git
+       params:
+        - name: url
+          value: https://github.com/tektoncd/catalog.git
+        - name: revision
+          value: main
+        - name: pathInRepo
+          value: task/git-clone/0.9/git-clone.yaml
+     params:
+      - name: url
+        value: $(params.GIT_REPO)
+      - name: revision
+        value: $(params.GIT_REVISION)
+      - name: subdirectory
+        value: ""
+      - name: deleteExisting
+        value: "true"
+      - name: sslVerify
+        value: "false"
+     workspaces:
+      - name: output
+        workspace: shared
+   - name: build
+     taskRef:
+       name: maven-task
+       kind: Task
+     params:
+       - name: app_path
+         value: $(params.MVN_APP_PATH)
+     runAfter:
+       - clone-repository
+     workspaces:
+       - workspace: shared
+         name: source
+       - workspace: maven_config
+         name: maven_config
+   - name: oc-deploy
+     runAfter:
+      - "build"
+     taskRef:
+         resolver: cluster
+         params:
+           - { name: kind,      value: task }
+           - { name: name,      value: openshift-client }
+           - { name: namespace, value: openshift-pipelines }
+     workspaces:
+        - name: manifest_dir
+          workspace: shared
+     params:
+       - name: SCRIPT
+         value: |
+           cd "$(workspaces.manifest_dir.path)/$(params.MVN_APP_PATH)" || exit 1 
+           oc new-build --name=$(params.DEPLOY_APP_NAME) \
+              -l app=$(params.DEPLOY_APP_NAME) --binary=true \
+              --image-stream=openshift/java:8 || echo "BC already exists"
+           oc start-build $(params.DEPLOY_APP_NAME) --wait=true \
+              --from-file=$(params.DEPLOY_ARTIFACT_NAME)
+           oc new-app $(params.DEPLOY_APP_NAME):latest \
+              --name $(params.DEPLOY_APP_NAME) || echo "application exists"
+           oc expose svc $(params.DEPLOY_APP_NAME) || echo "route exists"
+   - name: skopeo-copy
+     runAfter:
+       - oc-deploy
+     taskRef:
+       resolver: cluster
+       params:
+         - { name: kind,      value: task }
+         - { name: name,      value: skopeo-copy }
+         - { name: namespace, value: openshift-pipelines }
+     params:
+       - name: SOURCE_IMAGE_URL
+         value: docker://image-registry.openshift-image-registry.svc:5000/$(context.pipelineRun.namespace)/$(params.DEPLOY_APP_NAME):latest
+       - name: DESTINATION_IMAGE_URL
+         value: docker://default-route-openshift-image-registry.apps-crc.testing/$(context.pipelineRun.namespace)/$(params.DEPLOY_APP_NAME):copy
+       - name: SRC_TLS_VERIFY
+         value: "false"
+       - name: DEST_TLS_VERIFY
+         value: "false"

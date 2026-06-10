@@ -15,36 +15,118 @@ spec:
       default: "image-registry.openshift-image-registry.svc:5000"
     - name: GIT_REPO
       type: string
-      default: "https://git.ocp4.example.com/developer/DO288-apps"
+      default: "https://github.com/sparlampe/DO288-apps"
     - name: GIT_REVISION
       type: string
-      default: "master"
+      default: "OCP4.12"
     - name: APP_PATH
       type: string
       default: "apps/compreview-cicd/words"
   tasks:
     - name: fetch-repository
-      # TODO
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/tektoncd/catalog.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: task/git-clone/0.9/git-clone.yaml
       params:
-        # TODO
+        - name: url
+          value: $(params.GIT_REPO)
+        - name: revision
+          value: $(params.GIT_REVISION)
+        - name: subdirectory
+          value: ""
         - name: deleteExisting
           value: "true"
         - name: sslVerify
           value: "false"
       workspaces:
-        # TODO
+        - name: output
+          workspace: shared
 
     - name: npm-install
-    # TODO
+      taskRef:
+        name: npm
+        kind: Task
+      workspaces:
+        - name: source
+          workspace: shared
+      params:
+        - name: CONTEXT
+          value: $(params.APP_PATH)
+        - name: ARGS
+          value: install --no-package-lock
+      runAfter:
+        - fetch-repository
 
     - name: npm-test
-    # TODO
-
+      taskRef:
+        name: npm
+        kind: Task
+      workspaces:
+        - name: source
+          workspace: shared
+      params:
+        - name: CONTEXT
+          value: $(params.APP_PATH)
+        - name: ARGS
+          value: test
+      runAfter:
+        - npm-install
     - name: npm-lint
-    # TODO
-
+      taskRef:
+       name: npm
+       kind: Task
+      workspaces:
+       - name: source
+         workspace: shared
+      params:
+       - name: CONTEXT
+         value: $(params.APP_PATH)
+       - name: ARGS
+         value: run lint
+      runAfter:
+        - npm-install
     - name: build-push-image
-    # TODO
-
+      taskRef:
+        resolver: cluster
+        params:
+          - { name: kind,      value: task }
+          - { name: name,      value: buildah }
+          - { name: namespace, value: openshift-pipelines }
+      params:
+        - name: IMAGE
+          value: $(params.IMAGE_REGISTRY)/$(context.pipelineRun.namespace)/$(params.IMAGE_NAME):$(context.pipelineRun.uid)
+        - name: DOCKERFILE
+          value: ./Containerfile
+        - name: CONTEXT
+          value: $(params.APP_PATH)
+      workspaces:
+        - name: source
+          workspace: shared
+      runAfter:
+        - npm-test
+        - npm-lint
     - name: oc-deploy
-    # TODO
+      runAfter:
+       - build-push-image
+      taskRef:
+        resolver: cluster
+        params:
+          - { name: kind,      value: task }
+          - { name: name,      value: openshift-client }
+          - { name: namespace, value: openshift-pipelines }
+      workspaces:
+        - name: manifest_dir
+          workspace: shared
+      params:
+        - name: SCRIPT
+          value: |
+            oc process -f $(params.APP_PATH)/kubefiles/app.yaml \
+              -p IMAGE_NAME=$(params.IMAGE_REGISTRY)/$(context.pipelineRun.namespace)/$(params.IMAGE_NAME):$(context.pipelineRun.uid) \
+              | oc apply -f -
+  

@@ -1,10 +1,13 @@
-FROM registry.ocp4.example.com:8443/ubi8/nodejs-16 AS appbuild
+FROM registry.access.redhat.com/ubi9/nodejs-20:latest AS appbuild
 
 LABEL version="1.0"
 LABEL description="To Do List application builder"
 
 # ENV REACT_APP_API_HOST=http://localhost:3000
 ENV REACT_APP_API_HOST=""
+# React-scripts 4 / Webpack 4 uses MD4, removed in Node 17+ OpenSSL 3.
+# Re-enable the legacy provider for the build.
+ENV NODE_OPTIONS=--openssl-legacy-provider
 
 USER 0
 
@@ -17,7 +20,7 @@ RUN chgrp -R 0 . && \
 
 
 # https://github.com/sclorg/nginx-container
-FROM registry.ocp4.example.com:8443/ubi8/nginx-118
+FROM registry.access.redhat.com/ubi9/nginx-124:latest
 
 LABEL version="1.0"
 LABEL description="To Do List application front-end"
@@ -27,4 +30,6 @@ LABEL updatedDate="2021-05-19"
 COPY nginx.conf /etc/nginx/
 COPY --from=appbuild /opt/app-root/src/build /usr/share/nginx/html
 
+EXPOSE 8080
+USER nginx
 CMD nginx -g "daemon off;"

@@ -1,5 +1,5 @@
 ---
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   name: npm
@@ -8,6 +8,7 @@ spec:
     - name: source
   results:
     - name: output
+      description: The combined stdout of the npm command
   params:
     - name: CONTEXT
       type: string
@@ -16,6 +17,15 @@ spec:
       type: string
     - name: NODE_IMAGE
       type: string
-      default: "registry.ocp4.example.com:8443/ubi8/nodejs-16:latest"
+      default: "registry.access.redhat.com/ubi9/nodejs-20:latest"
   steps:
-    - name: TODO
+    - name: npm-run
+      image: $(params.NODE_IMAGE)
+      script: |
+        npm $(params.ARGS) | tee $(results.output.path)
+      workingDir: $(workspaces.source.path)/$(params.CONTEXT)
+      env:
+        - name: CI
+          value: "true"
+      securityContext:
+        runAsNonRoot: true
