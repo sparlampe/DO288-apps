@@ -11,7 +11,7 @@ USER 1001
 # Avoid using "npm ci" to prevent problems with the private NPM registry in the lab environment
 RUN npm install --omit dev --no-package-lock
 
-FROM registry.access.redhat.com/ubi9/nodejs-20:latest:latest
+FROM registry.access.redhat.com/ubi9/nodejs-20:latest
 COPY --from=builder $HOME $HOME
 EXPOSE 3000
 CMD npm run -d start
